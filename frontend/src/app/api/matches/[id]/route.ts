@@ -5,6 +5,7 @@ import { determineMatchStatus, updateMatchStatuses } from '@/utils/match-status-
 import { handleApiError, ApiErrors } from '@/lib/api-error';
 import { MATCH_INCLUDE } from '@/lib/prisma-includes';
 import { rateLimitGuard } from '@/lib/rate-limit';
+import { validationErrorResponse } from '@/lib/validation';
 
 export async function GET(
   _request: Request,
@@ -79,6 +80,13 @@ export async function PUT(
       playerIds,
     } = body;
 
+    // Never coerce an absent/invalid fee to 0: Number("") === 0, so an empty
+    // or unparseable fee used to silently overwrite the stored value.
+    const parsedFee = fee === undefined ? undefined : Number(fee);
+    if (parsedFee !== undefined && (fee === null || fee === "" || Number.isNaN(parsedFee))) {
+      return validationErrorResponse(["fee must be a number"]);
+    }
+
     // Use shared utility to determine correct status
     const finalStatus = date && time && status
       ? determineMatchStatus(date, time, status)
@@ -121,7 +129,6 @@ export async function PUT(
 
       const parsedDate = date ? new Date(date) : undefined;
       const validDate = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : undefined;
-      const parsedFee = fee !== undefined ? (Number.isNaN(Number(fee)) ? 0 : Number(fee)) : undefined;
 
       return tx.match.update({
         where: { id },

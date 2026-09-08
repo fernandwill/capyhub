@@ -127,7 +127,7 @@ export default function NewMatchModal({
         date: formattedDate,
         startTime,
         endTime,
-        fee: editingMatch.fee ? String(editingMatch.fee) : "",
+        fee: String(editingMatch.fee ?? 0),
         description: editingMatch.description ?? "",
         playerIds: editingMatch.players?.map((p) => p.player.id) ?? [],
       });
@@ -149,7 +149,11 @@ export default function NewMatchModal({
     const trimmedLocation = formData.location.trim();
     const trimmedCourtNumber = formData.courtNumber.trim();
     const trimmedDescription = formData.description.trim();
-    const feeValue = Number.parseInt(formData.fee, 10);
+    // A number input sanitizes thousand separators ("1.080.000") to an empty
+    // value, which used to submit fee: 0 and wipe the stored fee; strip the
+    // separators ourselves and fall back to the stored fee when unparseable.
+    const feeValue = Number.parseInt(formData.fee.replace(/[^\d]/g, ""), 10);
+    const fallbackFee = Number(editingMatch?.fee ?? 0) || 0;
 
     const matchData: MatchData = {
       title: trimmedTitle,
@@ -157,7 +161,7 @@ export default function NewMatchModal({
       courtNumber: trimmedCourtNumber,
       date: formData.date,
       time: `${formData.startTime}-${formData.endTime}`,
-      fee: Number.isNaN(feeValue) ? 0 : feeValue,
+      fee: Number.isNaN(feeValue) ? fallbackFee : feeValue,
       status: editingMatch?.status ?? "UPCOMING",
       description: trimmedDescription,
       playerIds: formData.playerIds,
